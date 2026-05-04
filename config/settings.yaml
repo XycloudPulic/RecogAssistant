@@ -1,0 +1,92 @@
+# PanddleOCR 配置文件（基础配置）
+# 仅保留代码实际使用的配置项；识别流程/节点等运行配置由数据库维护。
+
+# ==================== 服务器设置 ====================
+server:
+  host: "127.0.0.1"
+  port: 8000
+  debug: false
+  workers: 1
+
+# ==================== 日志设置 ====================
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)-8s] [%(request_id)s] %(name)s - %(message)s"
+  handlers:
+    console:
+      type: "console"
+      enabled: true
+      level: "INFO"
+    file:
+      type: "file"
+      enabled: true
+      level: "INFO"
+      file: "logs/app.log"
+      max_bytes: 10485760
+      backup_count: 5
+
+# ==================== OCR 设置 ====================
+ocr:
+  # 识别节点默认读取的基础参数（见 paddle_node.py、paddle_ocr_engine.py）
+  lang: "ch"
+  use_angle_cls: true
+  # Paddle 下载与本机模型缓存根（写入环境变量 PADDLE_OCR_BASE_DIR）；不填则回退使用 models_dir；皆不填则 ~/.paddleocr
+  paddle_ocr_home: null
+  # 与 paddle_ocr_home 相同时可不写两项；三套推理模型若已解压到此目录下的子目录，可被自动识别：
+  #   ch  -> ch_PP-OCRv4_det_infer / ch_PP-OCRv4_rec_infer / ch_ppocr_mobile_v2.0_cls_infer
+  #   en  -> en_PP-OCRv4_* / ch_ppocr_mobile_v2.0_cls_infer
+  # 子目录不存在时仍可启动：不传 det/rec/cls 路径，首次识别会按上项根目录自动下载缓存。
+  # 若想单独指向别处，再用 det_model_dir / rec_model_dir / cls_model_dir（相对项目根）。
+  models_dir: "data/model"
+  # service.bat init 阶段是否构造 Paddle（下载模型到缓存目录）；推荐 true，与下面 startup 预载二选一即可
+  prefetch_on_init: true
+  # 是否在 API 进程启动时再预加载 Paddle（与 init 重复）；推荐 false：模型已在 init 落地，首次识别时再加载进内存
+  prefetch_on_startup: false
+  # 仅当 prefetch_on_startup=true 时有效：false=在 lifespan 内阻塞直到预载完成；true=create_task 后台跑（首请求可能仍慢）
+  prefetch_non_blocking: false
+
+# ==================== LLM 设置 ====================
+llm:
+  provider: "openai"
+  openai:
+    api_key: ""
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-4o-mini"
+    max_tokens: 2000
+    temperature: 0.0
+
+# ==================== 数据库（统一 sqlite：配置+运行时） ====================
+db:
+  recognition_path: "data/db/recognition.db"
+
+# ==================== 前端调用后端 ====================
+api:
+  base_url: "http://127.0.0.1:8000"
+  timeout: 120
+  recognition:
+    # Server-side debug return switch (security):
+    # - false: NEVER include `data.debug` in API response (even if client passes ?debug=1)
+    # - true: ALWAYS include `data.debug` (backend-controlled)
+    return_debug: true
+
+# ==================== 编排器默认配置（兜底；优先使用数据库 nodes/workflows 配置） ====================
+orchestrator:
+  # 是否启用并行执行（目前主要用于未来扩展；默认 false）
+  parallel: false
+  # 当后台配置域（admin_configuration / nodes 表）有配置时，会覆盖下方 nodes（键名保持兼容）
+  use_config_db_nodes: true
+  auto_reload_nodes: true
+  nodes:
+    - name: "paddle_ocr"
+      class: "PaddleRecognitionNode"
+      module: "recognizer.domain.recognition.nodes.paddle_node"
+      order: 10
+      enabled: true
+    - name: "llm_recognition"
+      class: "LLMRecognitionNode"
+      module: "recognizer.domain.recognition.nodes.llm_node"
+      order: 20
+      enabled: false
+  extraction:
+    enabled: true
+    category: null

@@ -1,0 +1,41 @@
+{
+  "name": "电子发票识别",
+  "version": "1.0",
+  "description": "用于识别增值税电子普通发票和电子专用发票",
+  "system_prompt": "你是一个专业的发票识别助手。请仔细识别图片中的发票信息，并以JSON格式返回所有字段。如果某个字段无法识别，请返回空字符串。",
+  "user_prompt": "请识别这张电子发票图片，提取以下所有字段：\n\n1. 发票号码（invoice_number）：通常是20位数字\n2. 开票日期（invoice_date）：格式如2024年01月15日\n3. 校验码（check_code）：通常是20位数字\n4. 购买方名称（buyer_name）：公司全称\n5. 购买方纳税人识别号（buyer_tax_id）\n6. 销售方名称（seller_name）：公司全称\n7. 销售方纳税人识别号（seller_tax_id）\n8. 金额（amount）：不含税金额，数字格式\n9. 税额（tax）：税额，数字格式\n10. 价税合计（total_amount）：大写和小写金额\n11. 发票类型（invoice_type）：如\"电子普通发票\"或\"电子专用发票\"\n12. 机器编号（machine_number）：如有\n13. 收款人（payee）：如有\n14. 复核人（reviewer）：如有\n15. 开票人（drawer）：如有\n16. 备注（remarks）：如有\n\n请严格按照以下JSON格式返回，不要添加任何额外说明：\n\n{{\n  \"invoice_number\": \"发票号码\",\n  \"invoice_date\": \"开票日期\",\n  \"check_code\": \"校验码\",\n  \"buyer_name\": \"购买方名称\",\n  \"buyer_tax_id\": \"购买方税号\",\n  \"seller_name\": \"销售方名称\",\n  \"seller_tax_id\": \"销售方税号\",\n  \"amount\": \"金额（不含税）\",\n  \"tax\": \"税额\",\n  \"total_amount\": \"价税合计\",\n  \"invoice_type\": \"发票类型\",\n  \"machine_number\": \"机器编号\",\n  \"payee\": \"收款人\",\n  \"reviewer\": \"复核人\",\n  \"drawer\": \"开票人\",\n  \"remarks\": \"备注\"\n}}",
+  "response_format": {
+    "type": "json_schema",
+    "schema": {
+      "invoice_number": "string",
+      "invoice_date": "string",
+      "check_code": "string",
+      "buyer_name": "string",
+      "buyer_tax_id": "string",
+      "seller_name": "string",
+      "seller_tax_id": "string",
+      "amount": "string",
+      "tax": "string",
+      "total_amount": "string",
+      "invoice_type": "string",
+      "machine_number": "string",
+      "payee": "string",
+      "reviewer": "string",
+      "drawer": "string",
+      "remarks": "string"
+    }
+  },
+  "fields_mapping": {
+    "invoice_number": "发票号码",
+    "invoice_date": "开票日期",
+    "check_code": "校验码",
+    "buyer_name": "购买方名称",
+    "buyer_tax_id": "购买方纳税人识别号",
+    "seller_name": "销售方名称",
+    "seller_tax_id": "销售方纳税人识别号",
+    "amount": "金额",
+    "tax": "税额",
+    "total_amount": "价税合计",
+    "invoice_type": "发票类型"
+  }
+}

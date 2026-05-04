@@ -1,0 +1,27 @@
+# PanddleOCR 本地配置（覆盖 settings.yaml；不应提交到 git）
+# 仅保留“代码实际读取”的配置项；工作流/节点/模板/校验规则等运行配置在数据库中维护。
+
+# ==================== 服务器（本地覆盖） ====================
+server:
+  debug: true
+
+# ==================== 日志（本地覆盖） ====================
+logging:
+  level: "DEBUG"
+  handlers:
+    console:
+      level: "DEBUG"
+
+# ==================== 其他覆盖示例（按需打开） ====================
+# api:
+#   base_url: "http://127.0.0.1:8000"
+#   timeout: 120
+#   recognition:
+#     return_debug: false
+#
+# db:
+#   recognition_path: "data/db/recognition.db"
+#
+# llm:
+#   openai:
+#     api_key: "YOUR_KEY"
