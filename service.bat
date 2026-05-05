@@ -18,7 +18,7 @@ set "FRONTEND_PID=%STATEDIR%\frontend.pid"
 set "SPAWN_PS=%ROOT%\scripts\service_spawn.ps1"
 set "PYTHONPATH=%ROOT%\src"
 
-if not defined PIP_INDEX set "PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple"
+if not defined PIP_INDEX set "PIP_INDEX=https://mirrors.aliyun.com/pypi/simple/"
 set "PIP_FALLBACK=https://pypi.org/simple"
 
 if "%~1"=="" goto :usage
