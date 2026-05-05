@@ -43,7 +43,7 @@ service.bat start
 service.bat stop
 ```
 
-`init` 会创建/使用 `.venv`、安装 `requirements.txt`、初始化数据库、探测 VC++、并按 `config/settings.yaml` 决定是否做 Paddle 预热。`start` 通过 `scripts/service_spawn.ps1` 拉起后端与 Streamlit，PID 写入 `.service/`。
+`init` 会创建/使用 `.venv`、安装 `requirements.txt`、初始化数据库、探测 VC++、并按 `config/settings.yaml` 决定是否做 Paddle 预热。`start` 直接在 `service.bat` 中拉起后端与 Streamlit，PID 写入 `.service/`。
 
 **仅清理本机运行态**（数据库、日志、`.service` 等，**不**卸载 pip 包）：
 
@@ -111,7 +111,7 @@ RecogAssistant/
   src/recognizer/          # 分层代码：应用、领域、基础设施、API、Streamlit
   config/                  # settings.yaml、settings-local.yaml
   data/db/                 # SQLite、初始化与升级脚本
-  scripts/                 # service_spawn.ps1、VC++ 检查等
+  scripts/                 # （预留）
   service.bat / service.sh
   requirements.txt
   pyproject.toml
@@ -122,8 +122,7 @@ RecogAssistant/
 | 脚本 | 作用 |
 | --- | --- |
 | `service.bat` / `service.sh` | `init`（环境+库+DB+可选预热）、`start`、`stop`、`clear`（清本机运行数据）。 |
-| `scripts/service_spawn.ps1` | 由 `service.bat start` 调用，拉起 uvicorn / Streamlit，PID 写入 `.service/`。 |
-| `scripts/check_vcredist.ps1` | 可选：检查 System32 下 VC++ 相关 DLL，辅助排查 Paddle 加载失败。 |
+| `scripts/` | 预留目录（`service.bat` 已不再依赖其中脚本）。 |
 
 ## 常见问题
 

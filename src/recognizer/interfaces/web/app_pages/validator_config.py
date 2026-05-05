@@ -5,16 +5,9 @@
 import json
 
 import streamlit as st
-from app_meta import APP_NAME, APP_VERSION
 from utils.api_client import OCRAPIClient
 
 api = OCRAPIClient()
-
-st.set_page_config(
-    page_title=f"{APP_NAME}{APP_VERSION} · 校验规则",
-    page_icon="🛡️",
-    layout="wide",
-)
 
 st.title("🛡️ 校验规则")
 st.markdown(

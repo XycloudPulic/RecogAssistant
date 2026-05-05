@@ -15,7 +15,6 @@ set "SVC_LOG_PATH=%APP_LOG%"
 set "STATEDIR=%ROOT%\.service"
 set "BACKEND_PID=%STATEDIR%\backend.pid"
 set "FRONTEND_PID=%STATEDIR%\frontend.pid"
-set "SPAWN_PS=%ROOT%\scripts\service_spawn.ps1"
 set "PYTHONPATH=%ROOT%\src"
 
 if not defined PIP_INDEX set "PIP_INDEX=https://mirrors.aliyun.com/pypi/simple/"
@@ -114,17 +113,20 @@ echo Done.
 call :resolve_python
 if errorlevel 1 exit /b 1
 
-if not exist "%SPAWN_PS%" (
-  echo [ERROR] Missing "%SPAWN_PS%"
-  exit /b 1
-)
-
 REM 后端已默认不在启动时阻塞加载 Paddle（见 settings.yaml ocr.prefetch_on_startup）；仅轮询端口是否监听；若仍将预载开在 startup 可 set SVC_BACKEND_WAIT_SEC=300
 if not defined SVC_BACKEND_WAIT_SEC set "SVC_BACKEND_WAIT_SEC=45"
 
 call :svc_log "start: backend :8000"
 echo Starting backend (8000)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SPAWN_PS%" -Root "%ROOT%" -PidFile "%BACKEND_PID%" -Mode backend -PyExe "!SVC_PY_EXE!" -PyExtra "!SVC_PY_EXTRA!"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$root=$env:ROOT; $pidFile=$env:BACKEND_PID; $pyExe=$env:SVC_PY_EXE; $pyExtra=$env:SVC_PY_EXTRA; " ^
+  "$env:PYTHONPATH = (Join-Path $root 'src'); $env:PYTHONUNBUFFERED='1'; " ^
+  "$args = New-Object 'System.Collections.Generic.List[String]'; " ^
+  "if ($pyExtra -and $pyExtra.Trim()) { [void]$args.Add($pyExtra.Trim()) }; " ^
+  "[void]$args.Add('-u'); [void]$args.Add('-m'); [void]$args.Add('uvicorn'); " ^
+  "[void]$args.Add('recognizer.interfaces.api.app:app'); [void]$args.Add('--host'); [void]$args.Add('127.0.0.1'); [void]$args.Add('--port'); [void]$args.Add('8000'); " ^
+  "$p = Start-Process -FilePath $pyExe -ArgumentList $args.ToArray() -WorkingDirectory $root -WindowStyle Hidden -PassThru; " ^
+  "[System.IO.File]::WriteAllText($pidFile, [string]$p.Id)"
 
 echo Waiting for backend :8000 ^(max %SVC_BACKEND_WAIT_SEC%s^)...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$port=8000; $timeout=[int]$env:SVC_BACKEND_WAIT_SEC; $sw=[Diagnostics.Stopwatch]::StartNew(); while ($sw.Elapsed.TotalSeconds -lt $timeout) { $c=Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if ($c) { exit 0 }; Start-Sleep -Milliseconds 300 }; exit 1" >nul 2>nul
@@ -138,7 +140,16 @@ if errorlevel 1 (
 
 call :svc_log "start: frontend :8501"
 echo Starting frontend (8501)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SPAWN_PS%" -Root "%ROOT%" -PidFile "%FRONTEND_PID%" -Mode frontend -PyExe "!SVC_PY_EXE!" -PyExtra "!SVC_PY_EXTRA!"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$root=$env:ROOT; $pidFile=$env:FRONTEND_PID; $pyExe=$env:SVC_PY_EXE; $pyExtra=$env:SVC_PY_EXTRA; " ^
+  "$env:PYTHONPATH = (Join-Path $root 'src'); $env:PYTHONUNBUFFERED='1'; " ^
+  "$app = (Join-Path $root 'src\recognizer\interfaces\web\app.py'); " ^
+  "$args = New-Object 'System.Collections.Generic.List[String]'; " ^
+  "if ($pyExtra -and $pyExtra.Trim()) { [void]$args.Add($pyExtra.Trim()) }; " ^
+  "[void]$args.Add('-u'); [void]$args.Add('-m'); [void]$args.Add('streamlit'); [void]$args.Add('run'); [void]$args.Add($app); " ^
+  "[void]$args.Add('--server.port'); [void]$args.Add('8501'); [void]$args.Add('--server.headless'); [void]$args.Add('true'); [void]$args.Add('--browser.gatherUsageStats'); [void]$args.Add('false'); " ^
+  "$p = Start-Process -FilePath $pyExe -ArgumentList $args.ToArray() -WorkingDirectory $root -WindowStyle Hidden -PassThru; " ^
+  "[System.IO.File]::WriteAllText($pidFile, [string]$p.Id)"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$port=8501; $timeout=45; $sw=[Diagnostics.Stopwatch]::StartNew(); while ($sw.Elapsed.TotalSeconds -lt $timeout) { $c=Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if ($c) { exit 0 }; Start-Sleep -Milliseconds 300 }; exit 1" >nul 2>nul
 if errorlevel 1 (
@@ -196,7 +207,7 @@ if exist "%FRONTEND_PID%" (
 exit /b 0
 
 :kill_by_ports
-powershell -NoProfile -ExecutionPolicy Bypass -Command "foreach ($port in 8000,8501) { Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "foreach ($port in 8000,8501) { $cs=Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; foreach ($c in $cs) { try { Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue } catch { } } }" >nul 2>nul
 exit /b 0
 
 :resolve_python
@@ -234,11 +245,26 @@ if defined SKIP_VCREDIST_CHECK (
   call :svc_log "init: SKIP_VCREDIST_CHECK set; skip VC++ runtime probe"
   exit /b 0
 )
-if not exist "%ROOT%\scripts\check_vcredist.ps1" (
-  call :svc_log "[WARN] missing scripts\check_vcredist.ps1; skip VC++ runtime probe"
-  exit /b 0
-)
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\check_vcredist.ps1"
+REM VC++ runtime probe is inlined (no external .ps1 dependency)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ErrorActionPreference='Stop'; " ^
+  "$sys=Join-Path $env:WINDIR 'System32'; " ^
+  "$required=@('vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll'); " ^
+  "$missing=@(); foreach($f in $required){ $p=Join-Path $sys $f; if(-not (Test-Path -LiteralPath $p)){ $missing += $f } }; " ^
+  "if($missing.Count -eq 0){ exit 0 }; " ^
+  "Write-Host ''; " ^
+  "Write-Host '[WARN] Microsoft Visual C++ 2015-2022 Redistributable (x64) DLLs not found under System32.'; " ^
+  "Write-Host '       Paddle/PaddleOCR may fail to load native DLLs on Windows.'; " ^
+  "Write-Host ('       Missing: ' + ($missing -join ', ')); " ^
+  "Write-Host ''; " ^
+  "Write-Host 'Install: Visual C++ 2015-2022 Redistributable (x64)'; " ^
+  "Write-Host '  Download: https://aka.ms/vs/17/release/vc_redist.x64.exe'; " ^
+  "Write-Host '  winget:   winget install --id Microsoft.VCRedist.2015+.x64 -e'; " ^
+  "Write-Host ''; " ^
+  "Write-Host 'After install, run: service.bat init'; " ^
+  "Write-Host 'Optional (not recommended): set SKIP_VCREDIST_CHECK=1'; " ^
+  "Write-Host ''; " ^
+  "exit 1"
 if errorlevel 1 (
   set "VCREDIST_MISSING=1"
   call :svc_log "[WARN] VC++ Redistributable ^(x64^) likely missing for Paddle"

@@ -5,9 +5,6 @@
 import streamlit as st
 from app_meta import APP_NAME, APP_VERSION
 
-# 页面配置
-st.set_page_config(page_title="关于", page_icon="ℹ️", layout="wide")
-
 st.title("ℹ️ 关于")
 st.markdown("---")
 

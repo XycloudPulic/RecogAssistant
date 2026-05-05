@@ -16,7 +16,6 @@ from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
-from app_meta import APP_NAME, APP_VERSION
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -28,11 +27,6 @@ from components.node_graph import (
     render_node_row,
 )
 from utils.api_client import OCRAPIClient
-
-# 页面配置
-st.set_page_config(
-    page_title=f"{APP_NAME}{APP_VERSION} · 发票识别", page_icon="📄", layout="wide"
-)
 
 # 页面标题
 st.title("📄 发票识别")

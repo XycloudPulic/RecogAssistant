@@ -35,6 +35,10 @@ def _ensure_paddle_ocr_base_dir_before_import() -> None:
     home.mkdir(parents=True, exist_ok=True)
     path_with_sep = os.path.join(str(home.resolve()), "")
     os.environ[_ENV_PADDLE_OCR_HOME] = path_with_sep
+    # Some PaddleOCR/Paddle versions use different env keys for cache roots.
+    # Setting these is harmless and improves cross-version portability.
+    os.environ.setdefault("PADDLEOCR_HOME", path_with_sep)
+    os.environ.setdefault("PADDLEOCR_BASE_DIR", path_with_sep)
     logger.info(
         "%s=%s （首次将由 Paddle 自动下载模型到此目录树下）",
         _ENV_PADDLE_OCR_HOME,

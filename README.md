@@ -29,7 +29,11 @@
 ## Requirements
 
 - **Python** 3.10+ (3.11 tested).
-- **Windows + PaddleOCR**: install [VC++ 2015–2022 x64](https://aka.ms/vs/17/release/vc_redist.x64.exe) if Paddle fails to load; `service.bat init` probes this and may skip warm-up when DLLs are missing.
+- **Python 3.12 note**: some environments may not include build tooling by default. If you see errors about `setuptools` / build backend, run: `python -m pip install -U pip setuptools wheel`.
+- **Windows 10/11 + PaddleOCR**: you must install **Microsoft Visual C++ 2015–2022 Redistributable (x64)** (otherwise Paddle/PaddleOCR may fail to load native DLLs).
+  - Download: [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+  - Winget: `winget install --id Microsoft.VCRedist.2015+.x64 -e`
+  - `service.bat init` will probe these DLLs and may skip Paddle warm-up when missing.
 - Disk space for OCR models (downloaded on first use or during init warm-up).
 
 ## Quick start
@@ -106,7 +110,7 @@ RecogAssistant/
   src/recognizer/          # Application, domain, infrastructure, API, Streamlit UI
   config/                  # settings.yaml, settings-local.yaml
   data/db/                 # SQLite + SQL scripts / upgrades
-  scripts/                 # service_spawn.ps1, VC++ check helpers, etc.
+  scripts/                 # (reserved)
   service.bat / service.sh
   requirements.txt
   pyproject.toml
@@ -117,8 +121,7 @@ RecogAssistant/
 | Script | Role |
 | --- | --- |
 | `service.bat` / `service.sh` | `init` / `start` / `stop` / `clear` launcher. |
-| `scripts/service_spawn.ps1` | Spawned by `service.bat start` to run uvicorn and Streamlit with PID files under `.service/`. |
-| `scripts/check_vcredist.ps1` | Optional manual VC++ DLL probe for Paddle on Windows. |
+| `scripts/` | Reserved (no longer required by `service.bat`). |
 
 ## Development
 

@@ -5,13 +5,7 @@
 import time
 
 import streamlit as st
-from app_meta import APP_NAME, APP_VERSION
 from utils.api_client import OCRAPIClient
-
-# 页面配置
-st.set_page_config(
-    page_title=f"{APP_NAME}{APP_VERSION} · 调试日志", page_icon="📝", layout="wide"
-)
 
 st.title("📝 调试日志")
 st.markdown("查看 `logs/app.log` 的最新内容，支持按行数 tail、自动刷新、清空、导出。")

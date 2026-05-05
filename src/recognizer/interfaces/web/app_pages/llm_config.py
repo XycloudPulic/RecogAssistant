@@ -5,16 +5,9 @@
 import json
 
 import streamlit as st
-from app_meta import APP_NAME, APP_VERSION
 from utils.api_client import OCRAPIClient
 
 api = OCRAPIClient()
-
-st.set_page_config(
-    page_title=f"{APP_NAME}{APP_VERSION} · LLM配置",
-    page_icon="🤖",
-    layout="wide",
-)
 
 st.title("🤖 LLM配置")
 st.markdown("支持单行弹窗查看/修改、单行删除、勾选多行后批量删除。")

@@ -13,6 +13,13 @@ from recognizer.common.config.settings import Settings
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+st.set_page_config(
+    page_title=f"{APP_NAME}",
+    page_icon="📄",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 
 def _render_home() -> None:
     """Render the home page content."""
@@ -93,13 +100,6 @@ def _build_navigation_pages() -> list:
         )
     return pages
 
-
-st.set_page_config(
-    page_title=f"{APP_NAME}",
-    page_icon="📄",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 st.markdown(
     """

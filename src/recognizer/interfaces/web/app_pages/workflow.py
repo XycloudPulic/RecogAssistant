@@ -6,16 +6,9 @@ import json
 
 import requests
 import streamlit as st
-from app_meta import APP_NAME, APP_VERSION
 from utils.api_client import OCRAPIClient
 
 api = OCRAPIClient()
-
-st.set_page_config(
-    page_title=f"{APP_NAME}{APP_VERSION} · 调度流程",
-    page_icon="🧩",
-    layout="wide",
-)
 
 st.title("🧩 调度流程（Workflow）")
 st.markdown("支持单行弹窗查看/修改、单行删除、勾选多行后批量删除；节点组合独立维护。")
