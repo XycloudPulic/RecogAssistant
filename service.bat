@@ -51,6 +51,8 @@ call :kill_by_pidfiles
 call :kill_by_ports
 timeout /t 1 /nobreak >nul 2>nul
 echo Clear: removing project-local runtime files ^(database, Paddle OCR model dirs under config, logs, .service — not pip packages^)...
+call :check_python_exists
+if errorlevel 1 exit /b 1
 call :resolve_python
 if errorlevel 1 exit /b 1
 call "!SVC_PY_EXE!" !SVC_PY_EXTRA! -m recognizer.infrastructure.local_runtime.clear_local_runtime
@@ -70,6 +72,8 @@ exit /b 0
 call :ensure_dirs
 call :svc_log "init: begin"
 set "VCREDIST_MISSING=0"
+call :check_python_exists
+if errorlevel 1 exit /b 1
 call :resolve_python
 if errorlevel 1 exit /b 1
 call :pip_install
@@ -110,6 +114,8 @@ call :kill_by_ports
 timeout /t 1 /nobreak >nul 2>nul
 echo Done.
 
+call :check_python_exists
+if errorlevel 1 exit /b 1
 call :resolve_python
 if errorlevel 1 exit /b 1
 
@@ -238,6 +244,30 @@ if not errorlevel 1 (
   )
 )
 echo [ERROR] Python 3.10+ required.
+exit /b 1
+
+:check_python_exists
+where py >nul 2>nul
+if not errorlevel 1 exit /b 0
+where python >nul 2>nul
+if not errorlevel 1 exit /b 0
+echo.
+echo [ERROR] Python is not installed (or not in PATH).
+echo         Please install Python 3.10+ then re-run this command.
+echo         Download: https://www.python.org/downloads/windows/
+echo.
+exit /b 1
+
+::check_python_exists
+where py >nul 2>nul
+if not errorlevel 1 exit /b 0
+where python >nul 2>nul
+if not errorlevel 1 exit /b 0
+echo.
+echo [ERROR] Python is not installed (or not in PATH).
+echo         Please install Python 3.10+ then re-run this command.
+echo         Download: https://www.python.org/downloads/windows/
+echo.
 exit /b 1
 
 :check_vcredist_for_paddle

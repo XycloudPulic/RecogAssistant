@@ -2,8 +2,11 @@
 
 """PaddleOCR引擎实现"""
 
+import functools
+import importlib
 import logging
 import os
+import tarfile
 import threading
 from pathlib import Path
 from typing import List, Tuple
@@ -81,6 +84,127 @@ def _paddle_infer_subdirs_for_lang(lang: str) -> tuple[str, str, str]:
     )
 
 
+def _patch_paddleocr_download_robustness() -> None:
+    """Make PaddleOCR model download resilient to partial/corrupt .tar files.
+
+    Upstream ``download_with_progressbar`` skips re-download if the path exists, and
+    ``maybe_download`` opens the tar without validating integrity — a truncated
+    download causes ``tarfile.ReadError: unexpected end of data`` on every run.
+
+    PaddleOCR loads ``ppocr`` as a top-level package (``import ppocr``), which is a
+    *different module object* than ``paddleocr.ppocr`` in some installs. Patch both.
+    """
+    modules: list = []
+    for mod_name in ("ppocr.utils.network", "paddleocr.ppocr.utils.network"):
+        try:
+            modules.append(importlib.import_module(mod_name))
+        except Exception:
+            continue
+
+    if not modules:
+        return
+
+    def _apply_to(paddle_network) -> None:
+        if getattr(paddle_network, "_recog_assistant_download_patch", False):
+            return
+
+        orig_download = paddle_network.download_with_progressbar
+        orig_maybe = paddle_network.maybe_download
+
+        @functools.wraps(orig_download)
+        def download_with_progressbar(url, save_path):
+            if save_path and os.path.exists(save_path):
+                try:
+                    sz = os.path.getsize(save_path)
+                except OSError:
+                    sz = 0
+                if sz < 1024:
+                    try:
+                        os.remove(save_path)
+                    except OSError:
+                        pass
+                else:
+                    try:
+                        with tarfile.open(save_path, "r") as tf:
+                            tf.getmembers()
+                        return
+                    except (tarfile.ReadError, OSError):
+                        try:
+                            os.remove(save_path)
+                        except OSError:
+                            pass
+            orig_download(url, save_path)
+            if save_path and os.path.exists(save_path):
+                try:
+                    with tarfile.open(save_path, "r") as tf:
+                        tf.getmembers()
+                except (tarfile.ReadError, OSError) as e:
+                    try:
+                        os.remove(save_path)
+                    except OSError:
+                        pass
+                    raise RuntimeError(
+                        f"PaddleOCR model archive is corrupt or incomplete: {save_path}. "
+                        f"Removed for retry. ({e})"
+                    ) from e
+
+        @functools.wraps(orig_maybe)
+        def maybe_download(model_storage_directory, url):
+            last_err: Exception | None = None
+            for attempt in range(2):
+                try:
+                    return orig_maybe(model_storage_directory, url)
+                except (tarfile.ReadError, OSError, RuntimeError) as e:
+                    last_err = e
+                    tar_name = url.split("/")[-1]
+                    tmp_path = os.path.join(model_storage_directory, tar_name)
+                    for p in (tmp_path,):
+                        try:
+                            if os.path.isfile(p):
+                                os.remove(p)
+                        except OSError:
+                            pass
+                    logger.warning(
+                        "PaddleOCR model download/extract failed (attempt %s/2): %s",
+                        attempt + 1,
+                        e,
+                    )
+            if last_err:
+                raise last_err
+
+        paddle_network.download_with_progressbar = download_with_progressbar
+        paddle_network.maybe_download = maybe_download
+        paddle_network._recog_assistant_download_patch = True
+
+    seen_ids: set[int] = set()
+    for m in modules:
+        mid = id(m)
+        if mid in seen_ids:
+            continue
+        seen_ids.add(mid)
+        _apply_to(m)
+
+    # paddleocr.paddleocr binds maybe_download at import time; re-bind to patched callables.
+    try:
+        import paddleocr.paddleocr as paddleocr_entry
+
+        src = None
+        for m in modules:
+            if getattr(m, "_recog_assistant_download_patch", False):
+                src = m
+                break
+        if src is not None:
+            paddleocr_entry.maybe_download = src.maybe_download
+            paddleocr_entry.download_with_progressbar = src.download_with_progressbar
+    except Exception:
+        pass
+
+    logger.info(
+        "Applied PaddleOCR download robustness patch (corrupt tar retry) to: %s",
+        ", ".join(sorted({m.__name__ for m in modules})),
+    )
+
+
 class PaddleOCREngine(BaseOCREngine):
     """PaddleOCR引擎实现"""
 
@@ -136,6 +260,7 @@ class PaddleOCREngine(BaseOCREngine):
             # 须在 import paddleocr 之前写入；否则仍会落到 ~/.paddleocr/
             Settings.load()
             _ensure_paddle_ocr_base_dir_before_import()
+            _patch_paddleocr_download_robustness()
 
             from paddleocr import PaddleOCR  # lazy import after env flags
 
